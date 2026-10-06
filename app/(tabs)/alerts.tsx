@@ -1,0 +1,17 @@
+import { Ionicons } from "@expo/vector-icons";
+import { useCallback, useState } from "react";
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useFocusEffect } from "expo-router";
+import { mobileApi } from "../../src/services/api";
+import { colors } from "../../src/theme/colors";
+import { DengueAlert } from "../../src/types";
+
+function riskColor(level = "") { return ({ LOW: colors.low, MODERATE: colors.moderate, HIGH: colors.high, CRITICAL: colors.critical } as any)[level.toUpperCase()] || colors.muted; }
+export default function AlertsScreen() {
+  const [items, setItems] = useState<DengueAlert[]>([]); const [loading, setLoading] = useState(true); const [refreshing, setRefreshing] = useState(false);
+  const load = useCallback(() => { mobileApi.alerts().then((d) => setItems(d.alerts)).finally(() => { setLoading(false); setRefreshing(false); }); }, []);
+  useFocusEffect(useCallback(() => { load(); }, [load]));
+  return <SafeAreaView style={styles.safe}><View style={styles.header}><Text style={styles.title}>Alerts & Reminders</Text><Text style={styles.subtitle}>Updates for Iligan City and your barangay</Text></View>{loading ? <ActivityIndicator style={{ marginTop: 40 }} color={colors.primary} /> : <ScrollView contentContainerStyle={styles.list} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}>{items.length === 0 ? <View style={styles.empty}><Ionicons name="notifications-off" size={48} color={colors.muted} /><Text style={styles.emptyTitle}>No active alerts</Text><Text style={styles.emptyText}>New alerts and prevention reminders will appear here.</Text></View> : items.map((a) => <View key={a.id} style={[styles.card, { borderLeftColor: riskColor(a.risk_level) }]}><View style={styles.cardTop}><View style={[styles.icon, { backgroundColor: riskColor(a.risk_level) }]}><Ionicons name="warning" size={20} color="#fff" /></View><View style={{ flex: 1 }}><Text style={styles.cardTitle}>{a.title}</Text><Text style={[styles.risk, { color: riskColor(a.risk_level) }]}>{a.risk_level} RISK • {a.barangay}</Text></View></View><Text style={styles.message}>{a.message}</Text><Text style={styles.date}>{new Date(a.created_at).toLocaleString()}</Text></View>)}</ScrollView>}</SafeAreaView>;
+}
+const styles = StyleSheet.create({ safe: { flex: 1, backgroundColor: colors.background }, header: { padding: 22, backgroundColor: colors.primary }, title: { color: "#fff", fontSize: 25, fontWeight: "800" }, subtitle: { color: "#D8EEE8", marginTop: 4 }, list: { padding: 16, paddingBottom: 90 }, card: { backgroundColor: "#fff", padding: 16, borderRadius: 14, borderLeftWidth: 5, marginBottom: 12 }, cardTop: { flexDirection: "row", gap: 11, alignItems: "center" }, icon: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center" }, cardTitle: { color: colors.text, fontWeight: "800", fontSize: 16 }, risk: { fontSize: 11, fontWeight: "800", marginTop: 2 }, message: { color: colors.text, lineHeight: 21, marginTop: 13 }, date: { color: colors.muted, fontSize: 11, marginTop: 10 }, empty: { alignItems: "center", paddingTop: 80 }, emptyTitle: { color: colors.text, fontWeight: "800", fontSize: 19, marginTop: 15 }, emptyText: { color: colors.muted, textAlign: "center", marginTop: 7 } });

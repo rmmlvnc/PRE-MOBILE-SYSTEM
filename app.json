@@ -1,0 +1,22 @@
+{
+  "expo": {
+    "name": "DengueWatch",
+    "slug": "denguewatch-mobile",
+    "scheme": "denguewatch",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "plugins": [
+      "expo-router",
+      "expo-location",
+      "expo-status-bar"
+    ],
+    "android": {
+      "package": "com.denguewatch.iligan.resident",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ]
+    }
+  }
+}
