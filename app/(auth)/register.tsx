@@ -1,10 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 import { router } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -39,7 +38,7 @@ export default function RegisterScreen() {
   const [locations, setLocations] = useState<Barangay[]>([]);
   const [locationsLoading, setLocationsLoading] = useState(true);
   const [locationsError, setLocationsError] = useState(false);
-  const [usingOfflineLocations, setUsingOfflineLocations] = useState(false);
+  const [usingBundledBarangays, setUsingBundledBarangays] = useState(false);
 
   /*
   |--------------------------------------------------------------------------
@@ -53,13 +52,13 @@ export default function RegisterScreen() {
     email: "",
     contact_number: "",
     barangay_id: 0,
-    purok_id: 0,
     address: "",
     password: "",
     confirm: "",
   });
 
   const [loading, setLoading] = useState(false);
+  const [submissionError, setSubmissionError] = useState("");
 
   async function loadLocations() {
     try {
@@ -68,13 +67,18 @@ export default function RegisterScreen() {
       const data = await mobileApi.locations();
       const barangays = Array.isArray(data.barangays) ? data.barangays : [];
       if (!barangays.length) throw new Error("No barangays are available.");
+      if (usingBundledBarangays) {
+        // Bundled choices have local placeholder IDs. Re-select from the
+        // database list after a successful refresh to obtain its real ID.
+        setForm((previous) => ({ ...previous, barangay_id: 0 }));
+      }
       setLocations(barangays);
-      setUsingOfflineLocations(false);
+      setUsingBundledBarangays(false);
     } catch {
-      // Do not leave the resident stuck on a loading picker. The official
-      // list can be used until the local server is reachable again.
+      // The official 44 names keep the form usable while the endpoint is
+      // reconnecting. Django resolves the selected canonical name on submit.
       setLocations(offlineBarangays);
-      setUsingOfflineLocations(true);
+      setUsingBundledBarangays(true);
       setLocationsError(false);
     } finally {
       setLocationsLoading(false);
@@ -82,11 +86,6 @@ export default function RegisterScreen() {
   }
 
   useEffect(() => { void loadLocations(); }, []);
-
-  const puroks = useMemo(
-    () => locations.find((barangay) => barangay.id === form.barangay_id)?.puroks ?? [],
-    [locations, form.barangay_id]
-  );
 
   /*
   |--------------------------------------------------------------------------
@@ -102,6 +101,11 @@ export default function RegisterScreen() {
       ...previous,
       [field]: value,
     }));
+    setSubmissionError("");
+  }
+
+  function showSubmissionError(message: string) {
+    setSubmissionError(message);
   }
 
   /*
@@ -111,49 +115,44 @@ export default function RegisterScreen() {
   */
 
   async function submit() {
+    setSubmissionError("");
     if (!form.first_name.trim()) {
-      Alert.alert("Required", "Please enter your first name.");
+      showSubmissionError("Enter your first name.");
       return;
     }
 
     if (!form.last_name.trim()) {
-      Alert.alert("Required", "Please enter your last name.");
+      showSubmissionError("Enter your last name.");
       return;
     }
 
     if (!form.email.trim()) {
-      Alert.alert("Required", "Please enter your email address.");
+      showSubmissionError("Enter your email address.");
       return;
     }
 
-    if (locationsLoading || locationsError || !locations.length) {
-      Alert.alert("Locations unavailable", "Load the barangay list before registering.");
+    if (locationsLoading || !locations.length) {
+      showSubmissionError("The barangay list is still loading. Please try again in a moment.");
       return;
     }
 
     if (!form.barangay_id) {
-      Alert.alert("Required", "Please select your barangay.");
+      showSubmissionError("Select your barangay.");
       return;
     }
 
     if (!form.password) {
-      Alert.alert("Required", "Please enter a password.");
+      showSubmissionError("Enter a password.");
       return;
     }
 
     if (form.password.length < 8) {
-      Alert.alert(
-        "Password",
-        "Password must contain at least 8 characters."
-      );
+      showSubmissionError("Password must contain at least 8 characters.");
       return;
     }
 
     if (form.password !== form.confirm) {
-      Alert.alert(
-        "Password mismatch",
-        "The passwords you entered do not match."
-      );
+      showSubmissionError("The passwords you entered do not match.");
       return;
     }
 
@@ -165,24 +164,21 @@ export default function RegisterScreen() {
         last_name: form.last_name.trim(),
         email: form.email.trim().toLowerCase(),
         contact_number: form.contact_number.trim(),
-        barangay_id: form.barangay_id,
+        barangay_id: form.barangay_id > 0 ? form.barangay_id : null,
         barangay_name: locations.find((item) => item.id === form.barangay_id)?.name || "",
-        purok_id: form.purok_id || null,
+        // Purok/Sitio is intentionally collected with a report, not during
+        // account creation, so residents can register with barangay alone.
+        purok_id: null,
         address: form.address.trim(),
         password: form.password,
       };
 
       await register(registrationData);
-      // Alert button callbacks are not consistently supported by React Native
-      // Web. Navigate directly so a successful web registration cannot remain
-      // trapped on this screen.
-      router.replace({
-        pathname: "/(auth)/login",
-        params: { registered: "1", email: registrationData.email },
-      });
+      // The backend returns a mobile access token. AuthContext persists it,
+      // so a confirmed registration enters the resident dashboard directly.
+      router.replace("/(tabs)");
     } catch (error) {
-      Alert.alert(
-        "Registration Failed",
+      showSubmissionError(
         error instanceof Error
           ? error.message
           : "Unable to create your account. Please try again."
@@ -318,11 +314,6 @@ export default function RegisterScreen() {
                   "barangay_id",
                   Number(value)
                 );
-
-                /*
-                 * Reset Purok whenever Barangay changes.
-                 */
-                update("purok_id", 0);
               }}
             >
 
@@ -350,42 +341,16 @@ export default function RegisterScreen() {
               <Text style={styles.retryHint}>Server: {API_BASE_URL}</Text>
             </TouchableOpacity>
           ) : null}
-          {usingOfflineLocations ? <Text style={styles.offlineHint}>Using the official 44-barangay list. Purok is optional until the server connection is restored.</Text> : null}
-
-          {/* ================================================= */}
-          {/* PUROK */}
-          {/* ================================================= */}
-
-          <Text style={styles.label}>
-            Purok / Sitio
-          </Text>
-
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={form.purok_id}
-              enabled={form.barangay_id !== 0}
-              onValueChange={(value) =>
-                update(
-                  "purok_id",
-                  Number(value)
-                )
-              }
-            >
-
-              <Picker.Item
-                label={
-                  form.barangay_id
-                    ? "Select purok (optional)"
-                    : "Select barangay first"
-                }
-                value={0}
-              />
-              {puroks.map((purok) => (
-                <Picker.Item key={purok.id} label={purok.name} value={purok.id} />
-              ))}
-
-            </Picker>
-          </View>
+          {usingBundledBarangays ? (
+            <View style={styles.bundledNotice}>
+              <Text style={styles.bundledText}>
+                Official barangay choices are available. Your registration will be saved as soon as the DengueWatch service is reachable.
+              </Text>
+              <TouchableOpacity onPress={() => void loadLocations()}>
+                <Text style={styles.retryText}>Retry connection</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
 
           {/* ADDRESS */}
           <Text style={styles.label}>
@@ -451,6 +416,12 @@ export default function RegisterScreen() {
                 : "Register"}
             </Text>
           </TouchableOpacity>
+          {submissionError ? (
+            <View accessibilityRole="alert" style={styles.submissionError}>
+              <Ionicons name="alert-circle-outline" size={18} color="#B42318" />
+              <Text style={styles.submissionErrorText}>{submissionError}</Text>
+            </View>
+          ) : null}
 
         </ScrollView>
       </KeyboardAvoidingView>
@@ -557,10 +528,15 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  offlineHint: {
+  bundledNotice: {
+    marginTop: 8,
+    gap: 5,
+  },
+
+  bundledText: {
     color: colors.muted,
     fontSize: 12,
-    marginTop: 8,
+    lineHeight: 17,
   },
 
   button: {
@@ -580,5 +556,24 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 15,
     fontWeight: "700",
+  },
+
+  submissionError: {
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "flex-start",
+    backgroundColor: "#FEF3F2",
+    borderWidth: 1,
+    borderColor: "#FECDCA",
+    borderRadius: 10,
+    padding: 11,
+    marginTop: 12,
+  },
+
+  submissionErrorText: {
+    flex: 1,
+    color: "#B42318",
+    fontSize: 13,
+    lineHeight: 18,
   },
 });

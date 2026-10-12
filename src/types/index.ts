@@ -14,6 +14,7 @@ export type Resident = {
   last_name: string;
   contact_number: string;
   address: string;
+  profile_picture: string | null;
   role: "RESIDENT";
   account_status: string;
   barangay: { id: number; name: string } | null;
@@ -63,7 +64,7 @@ export type DengueAlert = {
 
 export type AppNotification = {
   id: number;
-  type: "REPORT" | "REPLY" | "ASSIGNMENT" | "CASE";
+  type: "REPORT" | "REPLY" | "ALERT" | "ASSIGNMENT" | "CASE";
   title: string;
   message: string;
   link: string;

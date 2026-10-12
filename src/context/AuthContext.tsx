@@ -10,6 +10,7 @@ type AuthValue = {
   register: (data: object) => Promise<void>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  updateProfile: (form: FormData) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthValue | null>(null);
@@ -35,28 +36,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function saveSession(data: any) {
+  async function login(email: string, password: string) {
+    const data = await mobileApi.login(email.trim().toLowerCase(), password);
     await AsyncStorage.setItem("denguewatch_token", data.token);
     await AsyncStorage.setItem("denguewatch_user", JSON.stringify(data.user));
     setUser(data.user);
   }
 
-  async function login(email: string, password: string) {
-    const data = await mobileApi.login(email.trim().toLowerCase(), password);
-    await saveSession(data);
-  }
-
   async function register(form: object) {
-    // Registration deliberately does not create a local session. The user is
-    // sent to the sign-in screen so the login endpoint is the single place
-    // that persists an access token.
-    await mobileApi.register(form);
+    const data = await mobileApi.register(form);
+    if (!data?.token || !data?.user) {
+      throw new Error("Registration completed without a valid resident session.");
+    }
+    await AsyncStorage.setItem("denguewatch_token", data.token);
+    await AsyncStorage.setItem("denguewatch_user", JSON.stringify(data.user));
+    setUser(data.user);
   }
 
   async function logout() {
-    // Always end the local session first. This lets residents leave the app
-    // even when the Django server is offline; the token is still revoked when
-    // the server can be reached.
     const token = await AsyncStorage.getItem("denguewatch_token");
     await AsyncStorage.multiRemove(["denguewatch_token", "denguewatch_user"]);
     setUser(null);
@@ -64,8 +61,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       if (token) await mobileApi.logout(token);
     } catch {
-      // The device is already signed out. A revoked/expired token cannot be
-      // reused locally, so a network failure must not block logout.
+      // The local session has already been cleared. A failed remote logout
+      // must not prevent the resident from leaving the app.
     }
   }
 
@@ -75,8 +72,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await AsyncStorage.setItem("denguewatch_user", JSON.stringify(data.user));
   }
 
+  async function updateProfile(form: FormData) {
+    const data = await mobileApi.updateProfile(form);
+    setUser(data.user);
+    await AsyncStorage.setItem("denguewatch_user", JSON.stringify(data.user));
+  }
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, refreshProfile }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, refreshProfile, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );

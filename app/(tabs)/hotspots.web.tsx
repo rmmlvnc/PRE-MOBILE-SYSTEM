@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   ScrollView,
@@ -30,6 +30,7 @@ export default function HotspotsScreen() {
   const [mode, setMode] = useState<"map" | "list">("map");
   const [period, setPeriod] = useState("");
   const [selectedYear, setSelectedYear] = useState("");
+  const [selected, setSelected] = useState<Hotspot | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -49,6 +50,22 @@ export default function HotspotsScreen() {
     }, [load])
   );
 
+  const plottedHotspots = useMemo(() => {
+    const located = items.filter((item) => item.latitude != null && item.longitude != null);
+    if (!located.length) return [];
+    const latitudes = located.map((item) => Number(item.latitude));
+    const longitudes = located.map((item) => Number(item.longitude));
+    const minLatitude = Math.min(...latitudes), maxLatitude = Math.max(...latitudes);
+    const minLongitude = Math.min(...longitudes), maxLongitude = Math.max(...longitudes);
+    const latRange = Math.max(maxLatitude - minLatitude, 0.01);
+    const lngRange = Math.max(maxLongitude - minLongitude, 0.01);
+    return located.map((item) => ({
+      item,
+      left: `${8 + ((Number(item.longitude) - minLongitude) / lngRange) * 84}%`,
+      top: `${8 + ((maxLatitude - Number(item.latitude)) / latRange) * 84}%`,
+    }));
+  }, [items]);
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -64,7 +81,7 @@ export default function HotspotsScreen() {
         <Text style={styles.title}>Dengue Hotspots</Text>
         <Text style={styles.subtitle}>Historical case map • {period}</Text>
         <Text style={styles.period}>Selected: {selectedYear}</Text>
-        <Text style={styles.disclaimer}>AI forecasts are separate staff planning information and do not color this map.</Text>
+        <Text style={styles.disclaimer}>Low, Moderate, High, and Critical reflect historically confirmed cases in each barangay. They support planning and awareness only; they do not diagnose dengue or determine individual risk. AI forecasts are separate staff planning information and do not color this map.</Text>
 
         <View style={styles.switch}>
           <TouchableOpacity
@@ -90,12 +107,14 @@ export default function HotspotsScreen() {
       {mode === "map" ? (
         <ScrollView contentContainerStyle={styles.webMap}>
           <View style={styles.mapNotice}>
-            <Text style={styles.mapTitle}>Dengue Hotspot Map</Text>
-            <Text style={styles.mapText}>
-              The interactive native map is available on Android/iOS. The web
-              version shows the same hotspot data below so the dashboard works
-              in Chrome without loading the native map component.
-            </Text>
+            <Text style={styles.mapTitle}>Dengue Hotspot Overview</Text>
+            <Text style={styles.mapText}>Each colored point represents a barangay hotspot. Select a point to see the recorded case level. Open this screen in Expo Go for the full interactive boundary map.</Text>
+          </View>
+
+          <View style={styles.heatmap}>
+            <Text style={styles.compass}>N</Text><Text style={styles.mapLabel}>Iligan City barangay hotspot overview</Text>
+            {plottedHotspots.map(({ item, left, top }) => <TouchableOpacity key={item.id} onPress={() => setSelected(item)} style={[styles.hotspotPoint, { left, top, backgroundColor: riskColor(item.risk_level) } as any]} accessibilityLabel={`${item.barangay}, ${item.risk_level} risk`} />)}
+            {selected ? <View style={styles.selectedCard}><Text style={styles.selectedArea}>{selected.barangay}</Text><Text style={styles.selectedText}>{selected.current_cases ?? 0} recorded historical cases • {selected.risk_level} risk</Text></View> : <Text style={styles.mapPrompt}>Select a colored hotspot point</Text>}
           </View>
 
           {items.length === 0 ? (
@@ -199,6 +218,11 @@ const styles = StyleSheet.create({
   },
   mapTitle: { color: colors.text, fontWeight: "800", fontSize: 18 },
   mapText: { color: colors.muted, lineHeight: 20, marginTop: 7 },
+  heatmap: { height: 330, borderRadius: 16, backgroundColor: "#E6F1EC", borderWidth: 1, borderColor: "#C8DDD5", overflow: "hidden", position: "relative", marginBottom: 14 },
+  mapLabel: { position: "absolute", top: 14, left: 16, color: colors.text, fontWeight: "800", fontSize: 13 }, compass: { position: "absolute", top: 12, right: 16, color: colors.primary, fontWeight: "900", fontSize: 16 },
+  hotspotPoint: { position: "absolute", width: 19, height: 19, borderRadius: 10, borderWidth: 3, borderColor: "#fff", transform: [{ translateX: -10 }, { translateY: -10 }], boxShadow: "0px 1px 3px rgba(0,0,0,0.25)" as any },
+  mapPrompt: { position: "absolute", left: 16, right: 16, bottom: 15, backgroundColor: "rgba(255,255,255,0.9)", padding: 10, borderRadius: 9, textAlign: "center", color: colors.text, fontSize: 12 },
+  selectedCard: { position: "absolute", left: 16, right: 16, bottom: 15, backgroundColor: "rgba(255,255,255,0.95)", padding: 10, borderRadius: 9 }, selectedArea: { color: colors.text, fontWeight: "800" }, selectedText: { color: colors.muted, fontSize: 12, marginTop: 3 },
   list: { padding: 15, paddingBottom: 100 },
   card: {
     flexDirection: "row",

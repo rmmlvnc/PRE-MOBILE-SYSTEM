@@ -4,7 +4,8 @@
     "slug": "denguewatch-mobile",
     "platforms": [
       "android",
-      "ios"
+      "ios",
+      "web"
     ],
     "scheme": "denguewatch",
     "version": "1.0.0",
@@ -13,8 +14,20 @@
     "plugins": [
       "expo-router",
       "expo-location",
-      "expo-status-bar"
+      "expo-status-bar",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow DengueWatch to access your photos to update your profile picture.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ]
     ],
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
     "android": {
       "package": "com.denguewatch.iligan.resident",
       "permissions": [
