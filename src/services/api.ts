@@ -21,11 +21,16 @@ function developmentApiBaseUrl() {
 
 const metroApiBaseUrl = developmentApiBaseUrl();
 const configuredApiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
+// A deployed API or an HTTPS development tunnel must take precedence over
+// Metro's LAN host. This is needed when a phone hotspot/client-isolation rule
+// blocks direct access to the laptop, while preserving automatic LAN setup for
+// normal same-Wi-Fi development.
+const useConfiguredHttpsApi = configuredApiBaseUrl?.startsWith("https://");
 // In Expo Go development, Metro always knows the computer's current LAN
 // address. Prefer it over a stale .env.local value after changing routers.
-// Release builds continue to use the explicitly configured production URL.
+// An explicit HTTPS URL is retained for hosted deployments and local tunnels.
 export const API_BASE_URL = (
-  __DEV__ && metroApiBaseUrl
+  __DEV__ && metroApiBaseUrl && !useConfiguredHttpsApi
     ? metroApiBaseUrl
     : (configuredApiBaseUrl || "http://127.0.0.1:8000/api/mobile")
 ).replace(/\/$/, "");

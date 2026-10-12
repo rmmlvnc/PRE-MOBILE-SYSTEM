@@ -2,6 +2,10 @@
   "expo": {
     "name": "DengueWatch",
     "slug": "denguewatch-mobile",
+    "platforms": [
+      "android",
+      "ios"
+    ],
     "scheme": "denguewatch",
     "version": "1.0.0",
     "orientation": "portrait",
