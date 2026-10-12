@@ -42,6 +42,15 @@ export type Hotspot = {
   longitude: number | null;
 };
 
+export type HistoricalHotspotResponse = {
+  source: "historical_dataset";
+  historical_case_period: string;
+  selected_year: string;
+  selected_year_label: string;
+  map_data_source: string;
+  hotspots: Hotspot[];
+};
+
 export type DengueAlert = {
   id: number;
   title: string;
@@ -52,14 +61,25 @@ export type DengueAlert = {
   expires_at: string | null;
 };
 
+export type AppNotification = {
+  id: number;
+  type: "REPORT" | "REPLY" | "ASSIGNMENT" | "CASE";
+  title: string;
+  message: string;
+  link: string;
+  is_read: boolean;
+  created_at: string;
+};
+
 export type CommunityReport = {
   id: number;
   observation_type: string;
   description: string;
   barangay: string;
   purok: string | null;
-  status: "PENDING" | "VERIFIED" | "REJECTED";
+  status: "PENDING" | "FORWARDED" | "VERIFIED" | "REJECTED";
   staff_response?: string;
   reviewed_at?: string | null;
   submitted_at: string;
+  audit_trail?: { action: string; details: string; actor: string; created_at: string }[];
 };

@@ -11,7 +11,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
 import { mobileApi } from "../../src/services/api";
 import { colors } from "../../src/theme/colors";
-import { Hotspot } from "../../src/types";
+import { HistoricalHotspotResponse, Hotspot } from "../../src/types";
 
 function riskColor(level = "") {
   return (
@@ -29,14 +29,16 @@ export default function HotspotsScreen() {
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<"map" | "list">("map");
   const [period, setPeriod] = useState("");
+  const [selectedYear, setSelectedYear] = useState("");
 
   const load = useCallback(() => {
     setLoading(true);
     mobileApi
       .hotspots()
-      .then((d) => {
+      .then((d: HistoricalHotspotResponse) => {
         setItems(d.hotspots);
-        setPeriod(d.forecast_period || "Latest forecast");
+        setPeriod(d.historical_case_period || "Historical records");
+        setSelectedYear(d.selected_year_label || "All available historical years");
       })
       .finally(() => setLoading(false));
   }, []);
@@ -60,7 +62,9 @@ export default function HotspotsScreen() {
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
         <Text style={styles.title}>Dengue Hotspots</Text>
-        <Text style={styles.subtitle}>AI-assisted forecast • {period}</Text>
+        <Text style={styles.subtitle}>Historical case map • {period}</Text>
+        <Text style={styles.period}>Selected: {selectedYear}</Text>
+        <Text style={styles.disclaimer}>AI forecasts are separate staff planning information and do not color this map.</Text>
 
         <View style={styles.switch}>
           <TouchableOpacity
@@ -98,7 +102,7 @@ export default function HotspotsScreen() {
             <View style={styles.empty}>
               <Text style={styles.emptyTitle}>No hotspot data</Text>
               <Text style={styles.emptyText}>
-                No dengue hotspot records are available for this forecast period.
+                No historical dengue hotspot records are available for this selected period.
               </Text>
             </View>
           ) : (
@@ -113,7 +117,7 @@ export default function HotspotsScreen() {
                 <View style={styles.cardBody}>
                   <Text style={styles.area}>{x.barangay}</Text>
                   <Text style={styles.detail}>
-                    {x.predicted_cases ?? "N/A"} predicted cases • {x.trend || "No trend"}
+                    {x.current_cases ?? 0} recorded historical cases • {x.risk_level} risk
                   </Text>
                   {x.latitude != null && x.longitude != null ? (
                     <Text style={styles.coordinates}>
@@ -171,6 +175,8 @@ const styles = StyleSheet.create({
   header: { padding: 20, backgroundColor: "#fff" },
   title: { fontSize: 25, fontWeight: "800", color: colors.text },
   subtitle: { color: colors.muted, marginTop: 3 },
+  period: { color: colors.primary, marginTop: 4, fontWeight: "700", fontSize: 12 },
+  disclaimer: { color: colors.muted, marginTop: 4, fontSize: 11 },
   switch: {
     flexDirection: "row",
     backgroundColor: colors.background,
