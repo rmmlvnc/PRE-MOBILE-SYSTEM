@@ -1,8 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { API_BASE_URL } from "./src/services/api";
 
-// Replace this with your computer's IPv4 address while testing on Wi-Fi.
-export const API_BASE_URL =
-  "http://192.168.1.15:8000/api/mobile";
+export { API_BASE_URL };
 
 type RequestOptions = {
   method?: "GET" | "POST";

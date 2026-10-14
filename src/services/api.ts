@@ -97,7 +97,7 @@ export async function apiRequest(path: string, options: Options = {}) {
       ? "The request timed out."
       : "The server could not be reached.";
     throw new Error(
-      `${reason} The mobile app could not reach the DengueWatch service at ${API_BASE_URL}.`
+      `${reason} The mobile app could not reach the DengueWatch service at ${API_BASE_URL}. Start Django with "python manage.py runserver 0.0.0.0:8000", keep the phone and computer on the same Wi-Fi, and allow port 8000 through Windows Firewall.`
     );
   } finally {
     clearTimeout(timeout);

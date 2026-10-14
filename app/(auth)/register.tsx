@@ -344,7 +344,7 @@ export default function RegisterScreen() {
           {usingBundledBarangays ? (
             <View style={styles.bundledNotice}>
               <Text style={styles.bundledText}>
-                Official barangay choices are available. Your registration will be saved as soon as the DengueWatch service is reachable.
+                The barangay list is available offline, but your account cannot be created until the DengueWatch service is reachable. Retry the connection before submitting.
               </Text>
               <TouchableOpacity onPress={() => void loadLocations()}>
                 <Text style={styles.retryText}>Retry connection</Text>
